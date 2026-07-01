@@ -106,12 +106,12 @@ score < 0.6   → ROLLBACK  + Slack 🚨 + kubectl rollout undo
 Every decision is written to SQLite with timestamp, score, verdict, and reasons — full audit trail.
 
 Audit Log Sample Output
-
+```
 ID   TIMESTAMP              SCORE  VERDICT   REASONS
 52   2026-06-29 05:54:08    0.50   ROLLBACK  8 new pod restarts since baseline
 51   2026-06-29 05:53:54    0.70   WARN      8 new pod restarts since baseline
 20   2026-06-29 05:38:23    1.00   SAFE      all metrics within baseline thresholds
-
+```
 ---
 
 ## Quick Start
