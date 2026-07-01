@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deploy-guard-config
+  namespace: deploy-guard
+data:
+  NAMESPACE: "demo"
+  DEPLOYMENT: "sample-app"
+  INTERVAL: "30"
+  PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  LOKI_URL: "http://loki-gateway.monitoring.svc.cluster.local:80"
+  BASELINE_PATH: "/data/baseline.json"
+  AUDIT_DB: "/data/audit.db"

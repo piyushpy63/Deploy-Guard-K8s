@@ -1,0 +1,31 @@
+# Binary
+deploy-guard
+
+# Docker tar export
+*.tar
+
+# SQLite database
+*.db
+
+# Baseline snapshot
+baseline.json
+
+# Go build cache
+*.test
+*.out
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+k8s/secret.yaml

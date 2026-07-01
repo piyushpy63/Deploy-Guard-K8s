@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-guard
+  namespace: deploy-guard
+  labels:
+    app: deploy-guard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-guard
+  template:
+    metadata:
+      labels:
+        app: deploy-guard
+        vector.dev/exclude: "true"
+    spec:
+      serviceAccountName: deploy-guard
+      containers:
+        - name: deploy-guard
+          image: docker.io/library/deploy-guard:latest
+          imagePullPolicy: Never
+          args:
+            - -namespace=$(NAMESPACE)
+            - -deployment=$(DEPLOYMENT)
+            - -interval=$(INTERVAL)
+            - -prometheus-url=$(PROMETHEUS_URL)
+            - -loki-url=$(LOKI_URL)
+            - -slack-webhook=$(SLACK_WEBHOOK)
+            - -baseline-path=$(BASELINE_PATH)
+            - -audit-db=$(AUDIT_DB)
+            - -dry-run
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: NAMESPACE
+            - name: DEPLOYMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: DEPLOYMENT
+            - name: INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: INTERVAL
+            - name: PROMETHEUS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: PROMETHEUS_URL
+            - name: LOKI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: LOKI_URL
+            - name: BASELINE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: BASELINE_PATH
+            - name: AUDIT_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: deploy-guard-config
+                  key: AUDIT_DB
+            - name: SLACK_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: deploy-guard-secrets
+                  key: SLACK_WEBHOOK
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: deploy-guard-data
