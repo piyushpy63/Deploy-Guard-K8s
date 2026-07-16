@@ -9,5 +9,5 @@ data:
   INTERVAL: "30"
   PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
   LOKI_URL: "http://loki-gateway.monitoring.svc.cluster.local:80"
-  BASELINE_PATH: "/data/baseline.json"
+  BASELINE_PATH: "/data/baselines"
   AUDIT_DB: "/data/audit.db"
