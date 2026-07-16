@@ -1,5 +1,5 @@
 # Binary
-deploy-guard
+/deploy-guard
 
 # Docker tar export
 *.tar
