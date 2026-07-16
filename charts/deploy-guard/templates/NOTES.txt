@@ -1,0 +1,21 @@
+Deploy Guard has been successfully installed!
+
+🛡️ Watching namespaces: {{ join ", " .Values.watchNamespaces }}
+🏷️ Label selector:     {{ .Values.labelSelector }}
+
+🔍 To check the logs and monitor active watches, run:
+  kubectl logs -f deployment/{{ include "deploy-guard.fullname" . }} -n {{ .Release.Namespace }}
+
+⚠️  IMPORTANT: dryRun is currently set to {{ .Values.dryRun }}.
+{{- if .Values.dryRun }}
+    Deploy Guard is in DRY-RUN mode. It will log score evaluations and audit actions, 
+    but it will NOT perform automatic rollbacks.
+    To enable active rollbacks, redeploy the chart setting dryRun=false:
+      helm upgrade {{ .Release.Name }} charts/deploy-guard --set dryRun=false
+{{- else }}
+    Deploy Guard is ACTIVE. It will trigger automated rollbacks automatically if 
+    any rollout health score degrades below thresholds.
+{{- end }}
+
+📊 Audit logs are written to SQLite database at: {{ .Values.persistence.auditDB }}
+   (Persisted on PVC: {{ include "deploy-guard.fullname" . }}-data)

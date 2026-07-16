@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deploy-guard.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deploy-guard.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "deploy-guard.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "deploy-guard.selectorLabels" . | nindent 8 }}
+        vector.dev/exclude: "true"
+    spec:
+      serviceAccountName: {{ include "deploy-guard.serviceAccountName" . }}
+      containers:
+        - name: deploy-guard
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --watch-namespaces={{ join "," .Values.watchNamespaces }}
+            - --label-selector={{ .Values.labelSelector }}
+            - --interval={{ .Values.interval }}
+            - --dry-run={{ .Values.dryRun }}
+            - --prometheus-url={{ .Values.prometheus.url }}
+            - --loki-url={{ .Values.loki.url }}
+            - --baseline-path={{ .Values.persistence.baselinePath }}
+            - --audit-db={{ .Values.persistence.auditDB }}
+            {{- if .Values.slack.existingSecretName }}
+            - --slack-webhook=$(SLACK_WEBHOOK)
+            {{- end }}
+          {{- if .Values.slack.existingSecretName }}
+          env:
+            - name: SLACK_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.slack.existingSecretName }}
+                  key: SLACK_WEBHOOK
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "deploy-guard.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

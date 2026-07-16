@@ -1,0 +1,97 @@
+# Default values for deploy-guard.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# NOTE: Deploy Guard is single-instance by design — baseline snapshots
+# and the audit SQLite DB are file-based on a shared PVC. Running
+# multiple replicas is not supported and will reintroduce the
+# concurrent-write races fixed in the baseline atomic-Save() change.
+
+# -- Image configuration for the deploy-guard container.
+# Maps to specs in deployment.yaml
+image:
+  # -- Repository path for the deploy-guard docker image.
+  # This points to the GitHub Container Registry namespace where the image is built and stored.
+  repository: ghcr.io/piyushpy63/deploy-guard
+  # -- Image tag to pull.
+  tag: latest
+  # -- Image pull policy. Defaults to IfNotPresent for production installations.
+  pullPolicy: IfNotPresent
+
+# -- List of namespaces to monitor for deployment rollouts.
+# Maps to the --watch-namespaces command-line flag.
+watchNamespaces:
+  - demo
+
+# -- Label selector to filter which deployments to monitor within the namespaces.
+# Maps to the --label-selector command-line flag.
+labelSelector: "deploy-guard/enabled=true"
+
+# -- Polling interval in seconds to fetch metrics and evaluate deployment health.
+# Maps to the --interval command-line flag (replaces configmap INTERVAL).
+interval: 30
+
+# -- If true, deploy-guard runs in dry-run mode (logs and records rollback, but does not execute rollback command).
+# Maps to the --dry-run command-line flag.
+dryRun: true
+
+# -- Prometheus server endpoint configuration.
+# Maps to the --prometheus-url command-line flag (replaces configmap PROMETHEUS_URL).
+prometheus:
+  url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+
+# -- Grafana Loki endpoint configuration.
+# Maps to the --loki-url command-line flag (replaces configmap LOKI_URL).
+loki:
+  url: http://loki-gateway.monitoring.svc.cluster.local:80
+
+# -- Slack alert notification configuration.
+slack:
+  # -- Existing Kubernetes secret containing the Slack webhook url (under SLACK_WEBHOOK key).
+  # Maps to the --slack-webhook command-line flag.
+  # If left empty, Slack alerts are disabled. Plaintext webhook values are not supported for security.
+  existingSecretName: ""
+
+# -- Resource limits and requests for the deploy-guard pod.
+# Maps to resources in deployment.yaml
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# -- Persistent volume configuration for SQLite audit database and baseline snapshot storage.
+# Maps to pvc.yaml and volume mounts in deployment.yaml
+persistence:
+  # -- Enable persistence using a PersistentVolumeClaim.
+  enabled: true
+  # -- Storage class to request. Leave empty to use cluster default.
+  storageClass: ""
+  # -- Storage access modes.
+  accessModes:
+    - ReadWriteOnce
+  # -- Size of the persistent volume.
+  size: 1Gi
+  # -- Host path for persistent baseline files.
+  # Maps to --baseline-path command-line flag.
+  baselinePath: /data/baselines
+  # -- SQLite database file path.
+  # Maps to --audit-db command-line flag.
+  auditDB: /data/audit.db
+
+# -- Service account configuration.
+# Maps to serviceaccount.yaml and serviceAccountName in deployment.yaml
+serviceAccount:
+  # -- Specifies whether a service account should be created.
+  create: true
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template.
+  name: ""
+
+# -- Role and RoleBinding authorization configurations.
+# Maps to role.yaml and rolebinding.yaml files
+rbac:
+  # -- Specifies whether the Role and RoleBinding resources should be created per watched namespace.
+  create: true
