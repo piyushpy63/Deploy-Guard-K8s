@@ -238,9 +238,13 @@ func handleUpdate(
 					result := scorer.Score(current, baseMetrics)
 					reasons := strings.Join(result.Reasons, " | ")
 
-					log.Printf("[%s/%s] Score:   %.2f", ns, name, result.Score)
-					log.Printf("[%s/%s] Verdict: %s", ns, name, result.Verdict)
-					log.Printf("[%s/%s] Reasons: %s", ns, name, reasons)
+					if result.Verdict == "SAFE" {
+						log.Printf("[%s/%s] Verdict: SAFE (score=%.2f)", ns, name, result.Score)
+					} else {
+						log.Printf("[%s/%s] Score:   %.2f", ns, name, result.Score)
+						log.Printf("[%s/%s] Verdict: %s", ns, name, result.Verdict)
+						log.Printf("[%s/%s] Reasons: %s", ns, name, reasons)
+					}
 
 					// Send Slack alert on state change
 					if slack != nil && result.Verdict != lastVerdict {
