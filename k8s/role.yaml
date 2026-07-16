@@ -10,7 +10,7 @@ rules:
     verbs: ["get", "list", "watch"]
   # Execute rollbacks
   - apiGroups: ["apps"]
-    resources: ["deployments/rollback", "deployments"]
+    resources: ["deployments"]
     verbs: ["patch", "update"]
   # Read pods (needed for status and restart checking)
   - apiGroups: [""]
