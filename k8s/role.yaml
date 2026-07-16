@@ -1,12 +1,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
-
-kind: ClusterRole
-
+kind: Role
 metadata:
   name: deploy-guard
-
+  namespace: demo
 rules:
-  # Read deployments and pods
+  # Read deployments
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
@@ -14,11 +12,11 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments/rollback", "deployments"]
     verbs: ["patch", "update"]
-  # Read pods
+  # Read pods (needed for status and restart checking)
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
-  # Read replicasets (needed for rollback history)
+  # Read replicasets (needed for rollback history and target resolution)
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
