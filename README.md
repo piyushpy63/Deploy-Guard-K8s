@@ -114,21 +114,46 @@ ID   TIMESTAMP              SCORE  VERDICT   REASONS
 ```
 ---
 
-## Quick Start
+## Key Operational Knobs ⚙️
 
+When deploying Deploy Guard, the following two parameters in `values.yaml` govern its core safety behavior:
+
+* **`dryRun` (default: `true`):** If `true`, Deploy Guard runs in audit-only mode (evaluates health, records verdicts in SQLite, and alerts Slack, but does *not* execute rollbacks). Set to `false` to enable active automated rollbacks.
+* **`watchDuration` (default: `10m`):** Governs how long Deploy Guard protects a deployment after a rollout begins. Once this duration passes and the deployment remains stable, the watch goroutine terminates cleanly to free resources.
+
+---
+
+## Quick Start & Installation 🚀
+
+### Method A: Install via Helm (OCI Registry) - Recommended
+Deploy directly from our versioned OCI package in one line:
 ```bash
-# Run locally in dry-run mode
-./deploy-guard \
-  --namespace demo \
-  --deployment sample-app \
-  --dry-run \
-  --prometheus-url http://localhost:30769 \
-  --loki-url http://localhost:3100 \
-  --slack-webhook https://hooks.slack.com/YOUR/URL
+helm install deploy-guard oci://ghcr.io/piyushpy63/charts/deploy-guard \
+  --version 0.1.0 \
+  -n deploy-guard \
+  --create-namespace
+```
 
-# Deploy to k3s
+To enable active rollbacks and alert Slack during install:
+```bash
+helm install deploy-guard oci://ghcr.io/piyushpy63/charts/deploy-guard \
+  --version 0.1.0 \
+  -n deploy-guard \
+  --create-namespace \
+  --set dryRun=false \
+  --set slack.webhookUrl="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+### Method B: Deploy via Local Manifests
+```bash
 kubectl apply -f k8s/
 kubectl logs -n deploy-guard deployment/deploy-guard -f
 ```
+
+---
+
+## Try It Now (5-Minute Rollback Demo) 🧪
+Want to see an automated rollback happen in real-time? Follow the step-by-step instructions in the [Demo Application Guide](file:///home/ubuntu/deploy-guard/examples/demo-app/README.md) to deploy a simple app, intentionally break it, and watch Deploy Guard automatically heal it.
+
 
 
