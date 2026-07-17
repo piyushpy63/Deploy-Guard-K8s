@@ -137,7 +137,7 @@ func TestWatchLifecycleConcurrency(t *testing.T) {
 		go func(name, ns string) {
 			defer wg.Done()
 			oldD, newD := makeDummyDeployment(name, ns, "my-app")
-			handleUpdate(oldD, newD, ns, prom, loki, store, executor, nil, auditLog, true, 1)
+			handleUpdate(oldD, newD, ns, prom, loki, store, executor, nil, auditLog, true, 1, 10*time.Minute)
 		}(d.name, d.ns)
 	}
 	wg.Wait()
@@ -191,4 +191,65 @@ Loop:
 		delete(activeTemplates, k)
 	}
 	watchesMu.Unlock()
+}
+
+func TestWatchDurationTimeout(t *testing.T) {
+	// Clean up maps at test start.
+	watchesMu.Lock()
+	activeWatches = make(map[string]context.CancelFunc)
+	activeTemplates = make(map[string]string)
+	watchesMu.Unlock()
+
+	server := mockMetricsServer()
+	defer server.Close()
+
+	prom := metrics.NewPrometheusClient(server.URL)
+	loki := metrics.NewLokiClient(server.URL)
+	store := baseline.NewStore(t.TempDir())
+	executor := rollback.NewExecutor(true)
+
+	auditLog, err := audit.NewLog(filepath.Join(t.TempDir(), "audit.db"))
+	if err != nil {
+		t.Fatalf("failed to create audit log: %v", err)
+	}
+	defer auditLog.Close()
+
+	// Use a short watch duration of 2 seconds and interval of 1 second
+	watchDuration := 2 * time.Second
+	oldD, newD := makeDummyDeployment("app-b", "ns-b", "my-app")
+	handleUpdate(oldD, newD, "ns-b", prom, loki, store, executor, nil, auditLog, true, 1, watchDuration)
+
+	// Assert it was registered in activeWatches
+	watchesMu.Lock()
+	_, exists := activeWatches["ns-b/app-b"]
+	watchesMu.Unlock()
+	if !exists {
+		t.Fatalf("expected watch to be registered in map")
+	}
+
+	// Wait for watchDuration to expire (should be > 2 seconds)
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	success := false
+Loop:
+	for {
+		select {
+		case <-timeout:
+			break Loop
+		case <-ticker.C:
+			watchesMu.Lock()
+			_, exists = activeWatches["ns-b/app-b"]
+			watchesMu.Unlock()
+			if !exists {
+				success = true
+				break Loop
+			}
+		}
+	}
+
+	if !success {
+		t.Fatalf("watch did not terminate after watch duration exceeded")
+	}
 }

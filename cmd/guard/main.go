@@ -115,6 +115,7 @@ func handleUpdate(
 	auditLog *audit.Log,
 	dryRun bool,
 	interval int,
+	watchDuration time.Duration,
 ) {
 	oldDeploy, ok1 := oldObj.(*appsv1.Deployment)
 	newDeploy, ok2 := newObj.(*appsv1.Deployment)
@@ -163,6 +164,8 @@ func handleUpdate(
 				watchesMu.Unlock()
 			}()
 
+			startTime := time.Now()
+
 			// 1. Capture baseline metrics
 			log.Printf("Capturing baseline metrics for %s/%s...", ns, name)
 			promResult, err := prom.GetMetrics(ns)
@@ -195,6 +198,7 @@ func handleUpdate(
 			}
 			log.Printf("Successfully captured baseline snapshot for %s/%s", ns, name)
 
+			consecutiveSafe := 0
 			lastVerdict := ""
 			pollTicker := time.NewTicker(time.Duration(interval) * time.Second)
 			defer pollTicker.Stop()
@@ -204,6 +208,21 @@ func handleUpdate(
 				case <-ctx.Done():
 					return
 				case <-pollTicker.C:
+					// Check if watch duration has been exceeded to stop watching stable deployments
+					if time.Since(startTime) >= watchDuration {
+						if lastVerdict != "SAFE" {
+							log.Printf("WARNING: watch duration (%v) expired for %s/%s while deployment is not SAFE (last verdict: %q). Watcher is terminating; deployment left unmonitored. Investigate manually!", watchDuration, ns, name, lastVerdict)
+						} else {
+							log.Printf("Watch duration (%v) completed for %s/%s. Exiting watch loop as deployment is stable.", watchDuration, ns, name)
+						}
+						// Clean up baseline snapshot file
+						if err := store.Delete(ns, name+"-baseline"); err != nil {
+							log.Printf("ERROR deleting baseline snapshot: %v", err)
+						}
+						cancelFunc()
+						return
+					}
+
 					log.Printf("--- Polling cycle for %s/%s ---", ns, name)
 
 					// Query current metrics
@@ -239,8 +258,10 @@ func handleUpdate(
 					reasons := strings.Join(result.Reasons, " | ")
 
 					if result.Verdict == "SAFE" {
-						log.Printf("[%s/%s] Verdict: SAFE (score=%.2f)", ns, name, result.Score)
+						consecutiveSafe++
+						log.Printf("[%s/%s] Verdict: SAFE (score=%.2f, consecutive=%d/5)", ns, name, result.Score, consecutiveSafe)
 					} else {
+						consecutiveSafe = 0
 						log.Printf("[%s/%s] Score:   %.2f", ns, name, result.Score)
 						log.Printf("[%s/%s] Verdict: %s", ns, name, result.Verdict)
 						log.Printf("[%s/%s] Reasons: %s", ns, name, reasons)
@@ -254,6 +275,16 @@ func handleUpdate(
 						}
 					}
 					lastVerdict = result.Verdict
+
+					// If stable for 5 consecutive cycles, we can stop watching early
+					if consecutiveSafe >= 5 {
+						log.Printf("Deployment %s/%s has been stable and SAFE for %d consecutive polling cycles. Exiting watch loop.", ns, name, consecutiveSafe)
+						if err := store.Delete(ns, name+"-baseline"); err != nil {
+							log.Printf("ERROR deleting baseline snapshot: %v", err)
+						}
+						cancelFunc()
+						return
+					}
 
 					switch result.Verdict {
 					case "ROLLBACK":
@@ -282,8 +313,8 @@ func handleUpdate(
 							log.Printf("ERROR writing to audit log: %v", err)
 						}
 
-						// Remove the stale baseline file
-						if err := store.Delete(ns, name); err != nil {
+						// Remove the stale baseline file (with the correct -baseline suffix)
+						if err := store.Delete(ns, name+"-baseline"); err != nil {
 							log.Printf("ERROR deleting baseline snapshot: %v", err)
 						}
 
@@ -310,6 +341,7 @@ func main() {
 	kubeconfig      := flag.String("kubeconfig", "", "Path to kubeconfig file")
 	dryRun          := flag.Bool("dry-run", true, "If true, will not execute rollbacks")
 	interval        := flag.Int("interval", 30, "Polling interval in seconds")
+	watchDuration   := flag.Duration("watch-duration", 10*time.Minute, "Duration to watch a rollout after it starts")
 	prometheusURL   := flag.String("prometheus-url", "http://localhost:30769", "Prometheus base URL")
 	lokiURL         := flag.String("loki-url", "http://localhost:3100", "Loki base URL")
 	slackWebhook    := flag.String("slack-webhook", "", "Slack webhook URL for notifications")
@@ -330,6 +362,7 @@ func main() {
 	log.Printf("Deploy Guard starting: watching namespaces %v with label selector %s", namespaces, *labelSelector)
 	log.Printf("Dry-run:        %v", *dryRun)
 	log.Printf("Interval:       %ds", *interval)
+	log.Printf("Watch duration: %v", *watchDuration)
 	log.Printf("Prometheus:     %s", *prometheusURL)
 	log.Printf("Loki:           %s", *lokiURL)
 	log.Printf("Baseline path:  %s", *baselinePath)
@@ -402,7 +435,7 @@ func main() {
 
 		deployInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				handleUpdate(oldObj, newObj, namespace, prom, loki, store, executor, slack, auditLog, *dryRun, *interval)
+				handleUpdate(oldObj, newObj, namespace, prom, loki, store, executor, slack, auditLog, *dryRun, *interval, *watchDuration)
 			},
 		})
 

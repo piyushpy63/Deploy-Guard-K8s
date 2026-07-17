@@ -1,6 +1,4 @@
-FROM golang:1.25-alpine AS builder
-
-RUN apk add --no-cache gcc musl-dev
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
@@ -10,13 +8,10 @@ RUN go mod download
 
 COPY . .
 
-#build the binary
+# Build the binary statically (pure Go driver modernc.org/sqlite does not require CGO)
+RUN CGO_ENABLED=0 GOOS=linux go build -o deploy-guard cmd/guard/main.go
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o deploy-guard cmd/guard/main.go
-
-
-#stage 2
-
+# Stage 2: final runtime image
 FROM alpine:3.18 
 
 # Install kubectl + sqlite3 CLI (for debugging)
@@ -25,12 +20,8 @@ RUN apk add --no-cache curl sqlite && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
 
-
 COPY --from=builder /app/deploy-guard /usr/local/bin/deploy-guard
 
 RUN mkdir -p /data
 
 ENTRYPOINT ["deploy-guard"]
-
-
-
