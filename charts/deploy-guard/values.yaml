@@ -31,6 +31,10 @@ labelSelector: "deploy-guard/enabled=true"
 # Maps to the --interval command-line flag (replaces configmap INTERVAL).
 interval: 30
 
+# -- Duration to watch a rollout after it starts before considering it stable (e.g. 5m, 10m).
+# Maps to the --watch-duration command-line flag.
+watchDuration: 10m
+
 # -- If true, deploy-guard runs in dry-run mode (logs and records rollback, but does not execute rollback command).
 # Maps to the --dry-run command-line flag.
 dryRun: true
@@ -51,6 +55,9 @@ slack:
   # Maps to the --slack-webhook command-line flag.
   # If left empty, Slack alerts are disabled. Plaintext webhook values are not supported for security.
   existingSecretName: ""
+  # -- Plaintext Slack webhook URL to generate a dynamic Kubernetes Secret.
+  # If existingSecretName is provided, this field is ignored.
+  webhookUrl: ""
 
 # -- Resource limits and requests for the deploy-guard pod.
 # Maps to resources in deployment.yaml
@@ -95,3 +102,12 @@ serviceAccount:
 rbac:
   # -- Specifies whether the Role and RoleBinding resources should be created per watched namespace.
   create: true
+
+# -- Node selector for pod assignment.
+nodeSelector: {}
+
+# -- Tolerations for pod assignment.
+tolerations: []
+
+# -- Affinity for pod assignment.
+affinity: {}

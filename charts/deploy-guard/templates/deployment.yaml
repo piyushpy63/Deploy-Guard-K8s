@@ -7,6 +7,8 @@ metadata:
     {{- include "deploy-guard.labels" . | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "deploy-guard.selectorLabels" . | nindent 6 }}
@@ -25,20 +27,21 @@ spec:
             - --watch-namespaces={{ join "," .Values.watchNamespaces }}
             - --label-selector={{ .Values.labelSelector }}
             - --interval={{ .Values.interval }}
+            - --watch-duration={{ .Values.watchDuration }}
             - --dry-run={{ .Values.dryRun }}
             - --prometheus-url={{ .Values.prometheus.url }}
             - --loki-url={{ .Values.loki.url }}
             - --baseline-path={{ .Values.persistence.baselinePath }}
             - --audit-db={{ .Values.persistence.auditDB }}
-            {{- if .Values.slack.existingSecretName }}
+            {{- if or .Values.slack.existingSecretName .Values.slack.webhookUrl }}
             - --slack-webhook=$(SLACK_WEBHOOK)
             {{- end }}
-          {{- if .Values.slack.existingSecretName }}
+          {{- if or .Values.slack.existingSecretName .Values.slack.webhookUrl }}
           env:
             - name: SLACK_WEBHOOK
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.slack.existingSecretName }}
+                  name: {{ .Values.slack.existingSecretName | default (printf "%s-slack" (include "deploy-guard.fullname" .)) }}
                   key: SLACK_WEBHOOK
           {{- end }}
           volumeMounts:
@@ -54,3 +57,15 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
