@@ -12,7 +12,7 @@
 image:
   # -- Repository path for the deploy-guard docker image.
   # This points to the GitHub Container Registry namespace where the image is built and stored.
-  repository: ghcr.io/piyushpy63/deploy-guard
+  repository: ghcr.io/piyushpy63/deploy-guard-k8s
   # -- Image tag to pull.
   tag: latest
   # -- Image pull policy. Defaults to IfNotPresent for production installations.

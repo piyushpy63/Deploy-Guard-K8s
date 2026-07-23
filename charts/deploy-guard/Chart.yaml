@@ -2,5 +2,5 @@ apiVersion: v2
 name: deploy-guard
 description: Automated Kubernetes Deployment Safety System — detects bad deployments and triggers automatic rollbacks within 30 seconds using deterministic health scoring against pre-deployed baselines.
 type: application
-version: 0.1.0
-appVersion: 0.1.0
+version: 0.1.1
+appVersion: 0.1.1
